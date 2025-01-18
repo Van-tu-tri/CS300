@@ -1,0 +1,258 @@
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <string>
+#include <sstream>
+using namespace std;
+
+
+
+struct QueueNode
+{
+    int value;
+    QueueNode* next;
+};
+
+class Queue
+{
+public:
+    Queue()
+    {
+        size = 0;
+        head = nullptr;
+        tail = nullptr;
+    }
+
+    ~Queue()
+    {
+        while (head)
+        {
+            QueueNode* temp = head->next;
+            delete head;
+            head = temp;
+        }
+    }
+
+    void enqueue(int value)
+    {
+        QueueNode* newNode = new QueueNode();
+        newNode->value = value;
+        newNode->next = nullptr;
+
+        if (tail == nullptr)
+        {
+            head = tail = newNode;
+        }
+        else
+        {
+            tail->next = newNode;
+            tail = newNode;
+        }
+        size++;
+    }
+
+    int dequeue()
+    {
+        if (size == 0)
+        {
+            return -1010; // Error value for empty queue
+        }
+
+        int value = head->value;
+        QueueNode* temp = head;
+        head = head->next;
+        delete temp;
+        size--;
+
+        if (size == 0)
+        {
+            tail = nullptr;
+        }
+        return value;
+    }
+
+    bool isEmpty()
+    {
+        return size == 0;
+    }
+
+    int front()
+    {
+        if (head)
+        {
+            return head->value;
+        }
+        return -1010; // Error value if queue is empty
+    }
+
+
+private:
+    int size;
+    QueueNode* head;
+    QueueNode* tail;
+};
+
+
+
+
+// Check if the graph is bipartite or not.
+bool isBipartiteGraph(vector<vector<int>>& adjacency, int numVertices, vector<int>& colors)
+{
+    for (int i = 1; i <= numVertices; i++)
+    {
+        colors[i] = -1; // All uncolored at first
+    }
+
+    for (int start = 1; start <= numVertices; start++)
+    {
+        if (colors[start] == -1)
+        {
+            colors[start] = 0; // Start coloring the node
+            Queue q;
+            q.enqueue(start);
+
+            while (!q.isEmpty())
+            {
+                int u = q.front();
+                q.dequeue();
+
+                for (int i = 0; i < adjacency[u].size(); i++)
+                {
+                    int v = adjacency[u][i];
+                    if (colors[v] == -1) // Not colored yet
+                    {
+                        colors[v] = 1 - colors[u];
+                        q.enqueue(v);
+                    }
+                    else if (colors[v] == colors[u])
+                    {
+                        return false; // Not bipartite
+                    }
+                }
+            }
+        }
+    }
+    return true;
+}
+
+
+
+// Perform DFS to find augmenting path
+bool findMatching(int u, vector<vector<int>>& adjacency, vector<int>& match, vector<bool>& visited)
+{
+    for (int i = 0; i < adjacency[u].size(); i++)
+    {
+        // FIX: Use a separate variable to store adjacency[u][i].
+        int v = adjacency[u][i];
+
+        if (!visited[v])
+        {
+            visited[v] = true; // Mark v as visited
+
+            // If v is not matched yet (match[v] < 0), or if the previously matched 
+            // vertex can find an alternate match (augmenting path).
+            if (match[v] < 0 || findMatching(match[v], adjacency, match, visited))
+            {
+                match[v] = u; // Match u with v
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+// Find max matching in bipartite graph
+int maxBipartiteMatching(vector<vector<int>>& adjacency, int numVertices, vector<int>& colors)
+{
+    vector<int> match(numVertices + 1, -1);
+    int result = 0;
+
+
+
+    // We only attempt to match vertices that are in one partition, color == 0
+    for (int u = 1; u <= numVertices; u++)
+    {
+        
+        if (colors[u] == 0) // only match from set 0 to set 1
+        {
+            // Each time we try to find an augmenting path, reset visited
+            vector<bool> visited(numVertices + 1, false);
+            if (findMatching(u, adjacency, match, visited))
+            {
+                result++;
+            }
+        }
+    }
+    return result;
+}
+
+int main()
+{
+    
+    
+    while (true)
+    {
+        
+        cout << "Enter the graph name (e.g., 'graph1' or 'exit' to terminate): ";
+        string graphName;
+        cin >> graphName;
+
+        if (graphName == "exit")
+        {
+            break;
+        }
+
+        string fileName = graphName + ".txt";
+        ifstream ifile(fileName);
+
+        if (!ifile.is_open())
+        {
+            
+            cerr << "Cannot open file " << fileName << ". Please try again.\n";
+            continue;
+            
+        }
+
+        int numVertices, numEdges;
+        
+        ifile >> numVertices >> numEdges;
+
+        vector<vector<int>> adjacency(numVertices + 1);
+        
+        for (int i = 0; i < numEdges; i++)
+        {
+            int u, v;
+            ifile >> u >> v;
+            if (u >= 1 && u <= numVertices && v >= 1 && v <= numVertices)
+            {
+                adjacency[u].push_back(v);
+                adjacency[v].push_back(u);
+            }
+        }
+        
+        
+        ifile.close();
+
+        vector<int> colors(numVertices + 1, -1);
+        bool bipartite = isBipartiteGraph(adjacency, numVertices, colors);
+
+        if (!bipartite)
+        {
+            cout << "The graph is not bipartite.\n";
+        }
+        else
+        {
+            int maxMatch = maxBipartiteMatching(adjacency, numVertices, colors);
+            cout << "The graph is bipartite.\n";
+            cout << "Maximum matching size: " << maxMatch << "\n";
+        }
+    }
+    
+    
+    
+    
+    
+    
+    
+    return 0;
+}

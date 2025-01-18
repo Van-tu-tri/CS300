@@ -1,0 +1,345 @@
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <vector>
+
+
+// NAME:	UTKU
+// SURNAME: GENC
+// ID:		30611
+// COURSE:	CS300
+// HW:		3
+
+class hash
+{
+public:
+
+	// Constructor with table size
+	hash(int table_size)
+	{
+		this->hash_table = new std::string[table_size];
+		for (int i = 0; i < table_size; i++)
+		{
+			this->hash_table[i] = "null";
+		}
+		this->table_size = table_size;
+		this->load_factor = 0.0;
+	}
+
+	// Destructor is necessary since we use dynamic array.
+	~hash()
+	{
+		delete[] this->hash_table;
+	}
+
+	// Insert function
+	// It takes a value, uses "hash_function" (PRIVATE) to create index.
+	// If load_factor is bigger than 0.5, hash_table is resized.
+	bool insert(std::string value)
+	{
+		if (this->load_factor > 0.5)
+		{
+			resize_table();
+		}
+
+		// Use hash_function to create index.
+		int index = this->hash_function(value);
+
+		// If current index is not null in the hash_table, increase the index by one.
+		while (this->hash_table[index] != "null")
+		{
+			index++;
+			index = index % this->table_size;
+		}
+
+		
+		this->hash_table[index] = value;	// Insert the value with corresponding index.
+		this->index.push_back(index);		// Insert the index to the index vector. This vector is used when we resize the hash table.
+
+		this->load_factor = (this->index.size() + 0.0) / (this->table_size + 0.0);	// Update the load factor
+		
+		return true;
+	}
+
+
+
+	std::string found(std::string value)
+	{
+		// With value generate index.
+		int index = this->hash_function(value);
+
+		// While found value is not null and it is not our value (they produce same key, but different values).
+		// Increment the index.
+		while (this->hash_table[index] != value and this->hash_table[index] != "null")
+		{
+			index++;
+			index = index % this->table_size;
+		}
+
+		
+		if (this->hash_table[index] == "null")	// If index is null in hash table, there is no value.
+		{
+			return "null";
+		}
+		else									// Else, return the value (Basically the same value)
+		{
+			return this->hash_table[index];
+		}
+	}
+
+private:
+	int table_size;				// table_size is necessary for hash_function.
+	double load_factor;			// load_factor is necessary for resizing.
+	std::string* hash_table;	// This is our hash_table.
+
+	std::vector<int> index;		// Vector index, keep record of inserted elements.
+
+	// Hash function
+	int hash_function(std::string value)
+	{
+		int total_length = 0;
+		int current_index = 0;
+		int string_length = value.length();
+		for (int i = 0; i < string_length; i++)	// For each character in the value (string)
+		{
+			if (value.at(i) == 'w')
+			{
+				total_length += 7 * std::stoi(value.substr(current_index, i - current_index));	// Example: 13W. Extract the 13. Multiply by 7. Increase total length.
+				current_index = i + 1;	// Update the current_index.
+			}
+			if (value.at(i) == 'B')
+			{
+				total_length += 11 * std::stoi(value.substr(current_index, i - current_index));	// For black, multiply by 11.
+				current_index = i + 1;	// Update the current_index.
+			}
+		}
+		total_length = total_length % this->table_size;	// Map 
+		return total_length;
+	}
+
+	void resize_table()
+	{
+		// Create new_hash_table with the double size.
+		std::string* new_hash_table = new std::string[this->table_size * 2];
+
+		// Initialize the table.
+		for (int i = 0; i < this->table_size * 2; i++)
+		{
+			new_hash_table[i] = "null";
+		}
+
+		this->table_size = table_size * 2;	// Update the table_size
+
+
+		for (int i = 0; i < this->index.size(); i++)		// Remap the existing elements.
+		{
+			int index = this->index.at(i);					// Take the index from index vector.
+			std::string element = this->hash_table[index];	// Take the element with this index.
+			int new_index = this->hash_function(element);	// Generate the new_index with hash_function.
+
+			while (new_hash_table[new_index] != "null")		// If new_index is not null, increment it.
+			{
+				new_index++;
+				new_index = new_index % this->table_size;	// Map it to the new size.
+			}
+
+			new_hash_table[new_index] = element;	// When empty index is found, add it to the table.
+			this->index[i] = new_index;				// Update the index vector with new index.
+		}
+		delete[] this->hash_table;					// Delete the old table
+		this->hash_table = new_hash_table;			// Set the private field to the new table.
+		
+	}
+};
+
+
+std::string file_to_rle(std::ifstream& file)
+{
+	// Assume file is open for read.
+	std::string flat = "";
+	std::string rle = "";
+	std::string line = "";
+
+
+	// Flattened file.
+	while (std::getline(file, line))
+	{
+		// Since your file has \r, i need to check it. If there is, delete it.
+		if (line.at(line.length() - 1) == '\r')
+		{
+			line.erase(line.length() - 1);
+		}
+		
+		flat += line;
+	}
+	
+	int total = 0;
+	char current_char = flat.at(0);
+	
+	for (int i = 0; i < flat.length(); i++)
+	{
+		if (flat.at(i) == current_char)	// If current char is the same, increase the total encounter.
+		{
+			total++;
+		}
+		else
+		{
+			char white_or_black;	// If current_char is not the same, add rle the new sequence.
+			if (current_char == '0') white_or_black = 'B';
+			else white_or_black = 'W';
+			rle += (std::to_string(total) + white_or_black);
+			current_char = flat.at(i);
+			total = 1;	// Set the total 1, since we will pass the current.
+		}
+	}
+	// Addition of the last sequence.
+	char white_or_black;
+	if (current_char == '0') white_or_black = 'B';
+	else white_or_black = 'W';
+	rle += (std::to_string(total) + white_or_black);
+	return rle;
+}
+
+// For printing the decoded output.
+void decode_rle_print(std::string rle)
+{	
+	int current_length = 0;
+	int current_index = 0;
+
+	for (int i = 0; i < rle.length(); i++)
+	{
+		if (rle.at(i) == 'W')
+		{
+			// Find the length of sequence
+			int total_white = std::stoi(rle.substr(current_index, i - current_index));
+
+			// To find how far are we from the 28.
+			int to_print = 28 - current_length;
+			current_length += total_white;		// Increase the current length with length of the sequence.
+			if (current_length >= 28)			// If current_length is bigger than 28
+			{
+				for (int k = 0; k < to_print; k++)	// First we finish the current line
+				{
+					std::cout << '1';
+				}
+				std::cout << '\n';					// After finishing the current line, we switch to the next line.
+				current_length = current_length - 28;
+
+				// If current_length is still bigger than 28
+				while (current_length >= 28)
+				{
+					for (int k = 0; k < 28; k++)	// Print whole line
+					{
+						std::cout << '1';
+					}
+					std::cout << '\n';						// Switch to the new line
+					current_length = current_length - 28;	// Update the current length
+					// Repeat until current_length is smaller than 28.
+				}
+				for (int k = 0; k < current_length; k++)	// If it is smaller, print the remaining for that line.
+				{
+					std::cout << '1';
+				}
+			}
+			else
+				for (int k = 0; k < total_white; k++)		// If current_length is smaller at the first, just print the sequence. 
+				{											// No new line since line is not finished
+					std::cout << '1';
+				}
+			current_index = i + 1;
+		}
+		if (rle.at(i) == 'B')
+		{
+			int total_black = std::stoi(rle.substr(current_index, i - current_index));
+			int to_print = 28 - current_length;
+			current_length += total_black;
+			if (current_length >= 28)
+			{
+				for (int k = 0; k < to_print; k++)
+				{
+					std::cout << '0';
+				}
+				std::cout << '\n';
+				current_length = current_length - 28;
+				while (current_length >= 28)
+				{
+					for (int k = 0; k < 28; k++)
+					{
+						std::cout << '0';
+					}
+					std::cout << '\n';
+					current_length = current_length - 28;
+				}
+				for (int k = 0; k < current_length; k++)
+				{
+					std::cout << '0';
+				}
+			}
+			else
+				for (int k = 0; k < total_black; k++)
+				{
+					std::cout << '0';
+				}
+			current_index = i + 1;
+		}
+	}
+}
+
+
+
+int main()
+{
+	// Create hash table
+	hash hash_table = hash(100);
+
+	// File opening path
+	std::string base = "image";
+	std::string relative_path = "";
+
+	while (relative_path != "query")
+	{
+		std::cout << "Enter image number to insert into the hash table (or 'query' to continue):\n";
+		std::cin >> relative_path;
+		if (relative_path != "query")
+		{
+			std::string full_path = base + relative_path + ".txt";
+
+			std::ifstream input_file;
+			input_file.open(full_path); // Default is reading.
+
+
+			std::string rle = file_to_rle(input_file);	// Generate rle
+			input_file.close();							// Close the file.
+
+			hash_table.insert(rle);						// Insert element.
+			std::cout << "Image " << relative_path << " inserted into the hash table.\n";
+		}
+	}
+	while (relative_path != "exit")
+	{
+		base = "query";
+		std::cout << "Enter image number to query (or 'exit' to quit):\n";
+		std::cin >> relative_path;
+		if (relative_path != "exit")
+		{
+			std::string full_path = base + relative_path + ".txt";
+
+			std::ifstream input_file;
+			input_file.open(full_path); // Default is reading.
+
+			std::string rle = file_to_rle(input_file);
+			std::string found = hash_table.found(rle);
+			if (found == "null")
+			{
+				std::cout << "No match for the image with encoding: " << rle << '\n';
+			}
+			else
+			{
+				std::cout << "RLE String for query" << relative_path << ".txt found in hash table.\n";
+				decode_rle_print(rle);
+			}
+		}
+	}
+	std::cout << "Exiting the program!";
+	return 0;
+}
